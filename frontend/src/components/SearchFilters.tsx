@@ -1,0 +1,171 @@
+import React from 'react';
+import { FilterState } from '../types';
+import { Search, RotateCcw, CopyCheck } from 'lucide-react';
+
+interface SearchFiltersProps {
+  filters: FilterState;
+  cities: string[];
+  onChange: (updated: Partial<FilterState>) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onReset: () => void;
+  isLoading: boolean;
+}
+
+export const SearchFilters: React.FC<SearchFiltersProps> = ({
+  filters,
+  cities,
+  onChange,
+  onSubmit,
+  onReset,
+  isLoading,
+}) => {
+  return (
+    <form className="filter-card" onSubmit={onSubmit}>
+      <div className="filter-grid">
+        {/* Keyword Search */}
+        <div className="filter-group" style={{ gridColumn: 'span 2' }}>
+          <label className="filter-label" htmlFor="keyword">
+            Keywords (searches description)
+          </label>
+          <input
+            id="keyword"
+            type="text"
+            className="filter-input"
+            placeholder="e.g. condo, pet friendly, fenced yard, garage"
+            value={filters.keyword}
+            onChange={(e) => onChange({ keyword: e.target.value })}
+          />
+        </div>
+
+        {/* City Filter */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="city">
+            City
+          </label>
+          <select
+            id="city"
+            className="filter-select"
+            value={filters.city}
+            onChange={(e) => onChange({ city: e.target.value })}
+          >
+            <option value="">All Cities</option>
+            {cities.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Min Bedrooms */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="minBedrooms">
+            Min Bedrooms
+          </label>
+          <select
+            id="minBedrooms"
+            className="filter-select"
+            value={filters.minBedrooms}
+            onChange={(e) => onChange({ minBedrooms: e.target.value })}
+          >
+            <option value="">Any Bedrooms</option>
+            <option value="1">1+ Bedrooms</option>
+            <option value="2">2+ Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+            <option value="4">4+ Bedrooms</option>
+          </select>
+        </div>
+
+        {/* Min Price */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="minPrice">
+            Min Price ($)
+          </label>
+          <input
+            id="minPrice"
+            type="number"
+            step="5000"
+            className="filter-input"
+            placeholder="e.g. 400000"
+            value={filters.minPrice}
+            onChange={(e) => onChange({ minPrice: e.target.value })}
+          />
+        </div>
+
+        {/* Max Price */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="maxPrice">
+            Max Price ($)
+          </label>
+          <input
+            id="maxPrice"
+            type="number"
+            step="5000"
+            className="filter-input"
+            placeholder="e.g. 600000"
+            value={filters.maxPrice}
+            onChange={(e) => onChange({ maxPrice: e.target.value })}
+          />
+        </div>
+
+        {/* Target Budget */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="targetBudget">
+            Target Budget ($ for ranking)
+          </label>
+          <input
+            id="targetBudget"
+            type="number"
+            step="5000"
+            className="filter-input"
+            placeholder="e.g. 500000"
+            value={filters.targetBudget}
+            onChange={(e) => onChange({ targetBudget: e.target.value })}
+          />
+        </div>
+
+        {/* Page Size */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="pageSize">
+            Page Size
+          </label>
+          <select
+            id="pageSize"
+            className="filter-select"
+            value={filters.pageSize}
+            onChange={(e) => onChange({ pageSize: Number(e.target.value) })}
+          >
+            <option value={3}>3 per page</option>
+            <option value={5}>5 per page</option>
+            <option value={10}>10 per page</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Deduplication & Actions */}
+      <div className="filter-actions-row">
+        <div
+          className="toggle-container"
+          onClick={() => onChange({ deduplicate: !filters.deduplicate })}
+          title="Cluster matching listings across MLS sources and retain the best result"
+        >
+          <div className={`toggle-switch ${filters.deduplicate ? 'active' : ''}`}>
+            <div className="toggle-thumb" />
+          </div>
+          <span className="toggle-text" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <CopyCheck size={16} /> Hide duplicates across MLS sources
+          </span>
+        </div>
+
+        <div className="btn-group">
+          <button type="button" className="btn btn-secondary" onClick={onReset}>
+            <RotateCcw size={15} /> Reset
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            <Search size={15} /> {isLoading ? 'Searching...' : 'Apply Search'}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+};

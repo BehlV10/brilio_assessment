@@ -1,0 +1,152 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+
+def test_health_check():
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["totalListingsLoaded"] == 12
+
+
+def test_list_cities():
+    response = client.get("/api/listings/cities")
+    assert response.status_code == 200
+    cities = response.json()
+    assert "Springfield" in cities
+    assert "Fairfax" in cities
+    assert "Reston" in cities
+
+
+def test_search_default_parameters():
+    response = client.get("/api/listings/search")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 12
+    assert data["page"] == 1
+    assert data["pageSize"] == 5
+    assert data["totalPages"] == 3
+    assert len(data["results"]) == 5
+
+
+def test_search_with_filters():
+    response = client.get(
+        "/api/listings/search",
+        params={
+            "minPrice": 400000,
+            "maxPrice": 500000,
+            "minBedrooms": 3,
+            "city": "Springfield",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 0  # 3 bedrooms in Springfield are $525k and $527.5k
+
+    # Test match with higher maxPrice
+    response2 = client.get(
+        "/api/listings/search",
+        params={
+            "minPrice": 500000,
+            "maxPrice": 550000,
+            "minBedrooms": 3,
+            "city": "Springfield",
+        },
+    )
+    assert response2.status_code == 200
+    data2 = response2.json()
+    assert data2["total"] == 2  # A2 and B8
+
+
+def test_search_with_target_budget_relevance():
+    response = client.get(
+        "/api/listings/search",
+        params={"targetBudget": 600000, "pageSize": 3},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    results = data["results"]
+    assert len(results) == 3
+    # First result should be closest to $600k (e.g. A4 at $610k or B10 at $585k)
+    top_price = results[0]["price"]
+    assert top_price in [610000, 585000]
+    assert results[0]["budgetScore"] is not None
+    assert results[0]["relevanceScore"] > 80.0
+
+
+def test_search_with_deduplication():
+    # Without deduplication
+    r_no_dedup = client.get("/api/listings/search", params={"deduplicate": False, "pageSize": 100})
+    assert r_no_dedup.status_code == 200
+    assert r_no_dedup.json()["total"] == 12
+
+    # With deduplication
+    r_dedup = client.get("/api/listings/search", params={"deduplicate": True, "pageSize": 100})
+    assert r_dedup.status_code == 200
+    data = r_dedup.json()
+    assert data["total"] == 8
+    assert data["deduplicatedCount"] == 4
+
+
+# ==========================================
+# Deliberate Error Handling Tests
+# ==========================================
+
+def test_invalid_price_range_min_greater_than_max():
+    response = client.get("/api/listings/search", params={"minPrice": 600000, "maxPrice": 400000})
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "minPrice" in detail
+    assert "cannot be greater than maxPrice" in detail
+
+
+def test_invalid_negative_price():
+    response = client.get("/api/listings/search", params={"minPrice": -100})
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "minPrice cannot be negative" in detail
+
+
+def test_invalid_negative_bedrooms():
+    response = client.get("/api/listings/search", params={"minBedrooms": -1})
+    assert response.status_code == 400
+    assert "minBedrooms cannot be negative" in response.json()["detail"]
+
+
+def test_invalid_target_budget_zero_or_negative():
+    response = client.get("/api/listings/search", params={"targetBudget": 0})
+    assert response.status_code == 400
+    assert "targetBudget must be greater than zero" in response.json()["detail"]
+
+    response2 = client.get("/api/listings/search", params={"targetBudget": -500})
+    assert response2.status_code == 400
+    assert "targetBudget must be greater than zero" in response2.json()["detail"]
+
+
+def test_invalid_page_size_zero_or_negative():
+    response = client.get("/api/listings/search", params={"pageSize": 0})
+    assert response.status_code == 400
+    assert "pageSize must be greater than or equal to 1" in response.json()["detail"]
+
+    response2 = client.get("/api/listings/search", params={"pageSize": -5})
+    assert response2.status_code == 400
+    assert "pageSize must be greater than or equal to 1" in response2.json()["detail"]
+
+
+def test_invalid_page_zero_or_negative():
+    response = client.get("/api/listings/search", params={"page": 0})
+    assert response.status_code == 400
+    assert "page must be greater than or equal to 1" in response.json()["detail"]
+
+
+def test_empty_results_valid_response():
+    response = client.get("/api/listings/search", params={"city": "NonExistentCity"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"] == []
+    assert data["total"] == 0
+    assert data["totalPages"] == 0
