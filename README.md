@@ -6,7 +6,13 @@ A full-stack property search and ranking application built for the **Software En
 
 ## 1. Quick Start
 
-### Option A: Run Both Services with One Command
+### 🌐 Live Interactive Demo
+Try the deployed application directly in your browser:
+**[https://behlv10.github.io/brilio_assessment/](https://behlv10.github.io/brilio_assessment/)**
+
+---
+
+### Option A: Run Both Services Locally with One Command
 ```bash
 ./run.sh
 ```
