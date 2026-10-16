@@ -100,7 +100,8 @@ def test_scoring_without_target_budget_relies_on_recency(sample_data):
     # When targetBudget is None, relevanceScore equals recencyScore
     for item in scored:
         assert item.budgetScore is None
-        assert item.relevanceScore == item.recencyScore
+        expected = round(item.recencyScore * item.statusMultiplier, 1)
+        assert item.relevanceScore == expected
 
     # Newest listing (A5 listed on 2026-09-04) should have highest recency score of 100.0
     top = scored[0]
@@ -192,3 +193,38 @@ def test_pagination_empty_list():
     assert page_items == []
     assert total == 0
     assert total_pages == 0
+
+
+# ==========================================
+# Status Filtering & Penalty Tests
+# ==========================================
+
+def test_status_filter_active_only(sample_data):
+    # Total sample is 12: 11 active, 1 pending (A7)
+    params = SearchParams(status="active")
+    results = filter_listings(sample_data, params)
+    assert len(results) == 11
+    assert all(r.status.lower() == "active" for r in results)
+    assert not any(r.id == "A7" for r in results)
+
+
+def test_status_filter_pending_only(sample_data):
+    params = SearchParams(status="pending")
+    results = filter_listings(sample_data, params)
+    assert len(results) == 1
+    assert results[0].id == "A7"
+    assert results[0].status == "pending"
+
+
+def test_status_penalty_applied_to_pending(sample_data):
+    # A7 is pending
+    ref_date = date(2026, 9, 4)
+    scored = calculate_scores(sample_data, target_budget=540000.0, ref_date=ref_date)
+    
+    a7_scored = next(x for x in scored if x.id == "A7")
+    assert a7_scored.status == "pending"
+    assert a7_scored.statusMultiplier == 0.7
+    # Since A7 has 100% budget match, without penalty it would have a high score,
+    # but with 0.7 multiplier, relevanceScore is multiplied by 0.7
+    assert a7_scored.relevanceScore < 65.0
+

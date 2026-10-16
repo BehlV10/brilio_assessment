@@ -92,6 +92,26 @@ def test_search_with_deduplication():
     assert data["deduplicatedCount"] == 4
 
 
+def test_search_status_filter():
+    # Active only
+    res_active = client.get("/api/listings/search", params={"status": "active", "pageSize": 100})
+    assert res_active.status_code == 200
+    assert res_active.json()["total"] == 11
+    assert all(r["status"].lower() == "active" for r in res_active.json()["results"])
+
+    # Pending only
+    res_pending = client.get("/api/listings/search", params={"status": "pending"})
+    assert res_pending.status_code == 200
+    assert res_pending.json()["total"] == 1
+    assert res_pending.json()["results"][0]["id"] == "A7"
+
+
+def test_invalid_status_value():
+    response = client.get("/api/listings/search", params={"status": "unknown_status"})
+    assert response.status_code == 400
+    assert "status must be one of: all, active, pending, sold" in response.json()["detail"]
+
+
 # ==========================================
 # Deliberate Error Handling Tests
 # ==========================================

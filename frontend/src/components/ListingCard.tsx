@@ -41,6 +41,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
               <span>Budget: {listing.budgetScore.toFixed(0)}%</span>
             )}
             <span>Recency: {listing.recencyScore.toFixed(0)}%</span>
+            {listing.status.toLowerCase() === 'pending' && (
+              <span style={{ color: '#d97706', fontWeight: 600 }}>(-30% pending)</span>
+            )}
           </div>
         </div>
       </div>

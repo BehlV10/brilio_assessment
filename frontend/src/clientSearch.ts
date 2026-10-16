@@ -52,11 +52,13 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
   // 1. Filtering
   const cityQ = filters.city.trim().toLowerCase();
   const kwQ = filters.keyword.trim().toLowerCase();
+  const statusQ = filters.status ? filters.status.trim().toLowerCase() : 'all';
 
   const filtered = (sampleData as any[]).filter((item) => {
     if (minP !== null && item.price < minP) return false;
     if (maxP !== null && item.price > maxP) return false;
     if (minBed !== null && item.bedrooms < minBed) return false;
+    if (statusQ && statusQ !== 'all' && item.status.toLowerCase() !== statusQ) return false;
     if (cityQ && !item.city.toLowerCase().includes(cityQ)) return false;
     if (kwQ && !item.description.toLowerCase().includes(kwQ)) return false;
     return true;
@@ -91,20 +93,26 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
     const recencyScore = Number((recencyNormalized * 100.0).toFixed(1));
 
     let budgetScore: number | null = null;
-    let relevanceScore: number = recencyScore;
+    let baseRelevance: number = recencyScore;
 
     if (budget !== null && budget > 0) {
       const relDiff = Math.abs(item.price - budget) / budget;
       const budgetNormalized = Math.exp(-3.0 * relDiff);
       budgetScore = Number((budgetNormalized * 100.0).toFixed(1));
-      relevanceScore = Number((0.7 * budgetScore + 0.3 * recencyScore).toFixed(1));
+      baseRelevance = 0.7 * budgetScore + 0.3 * recencyScore;
     }
+
+    // Status penalty multiplier: 1.0 active, 0.7 pending, 0.3 sold
+    const itemStatus = item.status.toLowerCase();
+    const statusMultiplier = itemStatus === 'pending' ? 0.7 : itemStatus === 'sold' ? 0.3 : 1.0;
+    const relevanceScore = Number((baseRelevance * statusMultiplier).toFixed(1));
 
     return {
       ...item,
       relevanceScore,
       budgetScore,
       recencyScore,
+      statusMultiplier,
       isDuplicate: false,
       duplicateGroupId: getDeduplicationKey(item),
       otherSources: [],

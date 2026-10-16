@@ -79,12 +79,18 @@ Fresher listings represent new market inventory:
   - Listed 30 days ago: $50.0$
   - Listed 60 days ago: $33.3$
 
-### C. Composite Score & Deterministic Tie-Breaking
-- **When `targetBudget` is provided**:
-  $$\text{Relevance Score} = 0.70 \times S_{\text{budget}} + 0.30 \times S_{\text{recency}}$$
-  *(Budget proximity is the primary user intent, modulated by inventory freshness).*
-- **When `targetBudget` is omitted**:
-  $$\text{Relevance Score} = S_{\text{recency}}$$
+### C. Status Penalty Multiplier ($M_{\text{status}}$)
+Pending listings are already under contract and significantly less actionable for active homebuyers:
+- $M_{\text{status}} = 1.0$ for `active`
+- $M_{\text{status}} = 0.70$ for `pending` (30% relevance penalty)
+- $M_{\text{status}} = 0.30$ for `sold` (70% relevance penalty)
+
+### D. Composite Score & Deterministic Tie-Breaking
+- **Base Score**:
+  - With `targetBudget`: $S_{\text{base}} = 0.70 \times S_{\text{budget}} + 0.30 \times S_{\text{recency}}$
+  - Without `targetBudget`: $S_{\text{base}} = S_{\text{recency}}$
+- **Final Relevance Score**:
+  $$\text{Relevance Score} = S_{\text{base}} \times M_{\text{status}}$$
 - **Deterministic Tie-Breaking**:
   When scores match, listings are ordered deterministically by:
   1. `listedDate` descending (fresher first)
@@ -93,7 +99,16 @@ Fresher listings represent new market inventory:
 
 ---
 
-## 4. Cross-MLS Deduplication (Anticipated Interview Requirement)
+## 4. Status Filtering & Actionability
+
+Users can filter by listing status:
+- **All Statuses** (shows both active and pending listings, with pending listings receiving the 30% score penalty)
+- **Active Only** (hides pending listings entirely)
+- **Pending Only** (focuses exclusively on under-contract properties)
+
+---
+
+## 5. Cross-MLS Deduplication (Anticipated Interview Requirement)
 
 ### The Observation
 MLS aggregators frequently receive overlapping listings for the identical physical property across different provider feeds. In the provided sample dataset:
@@ -114,7 +129,7 @@ MLS aggregators frequently receive overlapping listings for the identical physic
 
 ---
 
-## 5. Deliberate Input Validation & Error Handling
+## 6. Deliberate Input Validation & Error Handling
 
 Rather than crashing or failing silently, the service validates search parameters and returns HTTP `400 Bad Request` with structured error messages:
 - `minPrice > maxPrice`: e.g. `"minPrice ($600,000) cannot be greater than maxPrice ($400,000)"`
@@ -126,7 +141,7 @@ Rather than crashing or failing silently, the service validates search parameter
 
 ---
 
-## 6. Architecture & Trade-offs
+## 7. Architecture & Trade-offs
 
 | Component | Choice | Trade-offs & Rationale |
 | :--- | :--- | :--- |

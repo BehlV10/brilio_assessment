@@ -66,6 +66,9 @@ def filter_listings(listings: List[Listing], params: SearchParams) -> List[Listi
             continue
         if params.minBedrooms is not None and item.bedrooms < params.minBedrooms:
             continue
+        if params.status and params.status != "all":
+            if item.status.strip().lower() != params.status.strip().lower():
+                continue
         if city_query:
             # Case-insensitive match (exact or substring)
             if city_query not in item.city.strip().lower():
@@ -89,13 +92,7 @@ def calculate_scores(
     Calculates relevance scores based on:
     1. Budget proximity (if target_budget provided)
     2. Recency decay (relative to ref_date or latest listing date)
-    
-    Formula:
-      - Budget score: max(0.0, 1.0 - |price - targetBudget| / targetBudget) * 100
-      - Recency score: (1.0 / (1.0 + daysAgo / 30.0)) * 100
-      - Overall relevance:
-          With target_budget: 0.6 * budget_score + 0.4 * recency_score
-          Without target_budget: recency_score
+    3. Status multiplier: 1.0 for active, 0.7 for pending (30% discount), 0.3 for sold
     """
     if not listings:
         return []
@@ -125,10 +122,24 @@ def calculate_scores(
             # 10% deviation scores ~74.0, decaying gracefully.
             budget_score_normalized = math.exp(-3.0 * rel_diff)
             budget_score = round(budget_score_normalized * 100.0, 1)
-            # Composite score: 70% budget match, 30% recency
-            relevance = round((0.7 * budget_score) + (0.3 * recency_score), 1)
+            # Composite base score: 70% budget match, 30% recency
+            base_relevance = (0.7 * budget_score) + (0.3 * recency_score)
         else:
-            relevance = recency_score
+            base_relevance = recency_score
+
+        # Status penalty multiplier:
+        # Active listings are actionable (1.0).
+        # Pending listings (under contract) receive a 30% relevance penalty (0.7).
+        # Sold listings receive a 70% relevance penalty (0.3).
+        status_norm = item.status.strip().lower()
+        if status_norm == "pending":
+            status_multiplier = 0.7
+        elif status_norm == "sold":
+            status_multiplier = 0.3
+        else:
+            status_multiplier = 1.0
+
+        relevance = round(base_relevance * status_multiplier, 1)
 
         scored.append(
             ScoredListing(
@@ -136,6 +147,7 @@ def calculate_scores(
                 relevanceScore=relevance,
                 budgetScore=budget_score,
                 recencyScore=recency_score,
+                statusMultiplier=status_multiplier,
                 isDuplicate=False,
                 duplicateGroupId=get_deduplication_key(item),
                 otherSources=[],

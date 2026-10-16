@@ -13,6 +13,7 @@ const initialFilters: FilterState = {
   minBedrooms: '',
   city: '',
   keyword: '',
+  status: 'all',
   targetBudget: '',
   deduplicate: false,
   pageSize: 5,
@@ -58,9 +59,10 @@ export const App: React.FC = () => {
     const nextFilters = { ...filters, ...updated };
     setFilters(nextFilters);
 
-    // If deduplicate toggle or pageSize was flipped, trigger search immediately
+    // If deduplicate toggle, status dropdown, or pageSize was flipped, trigger search immediately
     if (
       updated.deduplicate !== undefined ||
+      updated.status !== undefined ||
       (updated.pageSize !== undefined && updated.pageSize !== filters.pageSize)
     ) {
       setCurrentPage(1);

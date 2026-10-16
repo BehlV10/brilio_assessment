@@ -17,6 +17,7 @@ export interface Listing {
   relevanceScore: number;
   budgetScore: number | null;
   recencyScore: number;
+  statusMultiplier?: number;
   isDuplicate: boolean;
   duplicateGroupId?: string | null;
   otherSources: string[];
@@ -28,6 +29,7 @@ export interface FilterState {
   minBedrooms: string;
   city: string;
   keyword: string;
+  status: string;
   targetBudget: string;
   deduplicate: boolean;
   pageSize: number;

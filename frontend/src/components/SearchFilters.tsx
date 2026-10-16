@@ -76,6 +76,23 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           </select>
         </div>
 
+        {/* Listing Status */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="status">
+            Listing Status
+          </label>
+          <select
+            id="status"
+            className="filter-select"
+            value={filters.status}
+            onChange={(e) => onChange({ status: e.target.value })}
+          >
+            <option value="all">All Statuses</option>
+            <option value="active">Active Only</option>
+            <option value="pending">Pending Only</option>
+          </select>
+        </div>
+
         {/* Min Price */}
         <div className="filter-group">
           <label className="filter-label" htmlFor="minPrice">

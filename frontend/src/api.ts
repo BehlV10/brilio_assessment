@@ -38,6 +38,9 @@ export async function searchListings(
   if (filters.keyword.trim() !== '') {
     params.set('keyword', filters.keyword.trim());
   }
+  if (filters.status && filters.status.trim() !== '') {
+    params.set('status', filters.status.trim());
+  }
   if (filters.targetBudget.trim() !== '') {
     params.set('targetBudget', filters.targetBudget.trim());
   }

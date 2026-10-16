@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi import FastAPI, HTTPException, Query, Request, status as http_status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -66,7 +66,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         errors.append(f"{field}: {msg}")
     
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
+        status_code=http_status.HTTP_400_BAD_REQUEST,
         content={"detail": "; ".join(errors)},
     )
 
@@ -94,6 +94,7 @@ def search_listings(
     minBedrooms: Optional[int] = Query(None, description="Minimum bedrooms filter"),
     city: Optional[str] = Query(None, description="Filter by city name"),
     keyword: Optional[str] = Query(None, description="Keyword search in description"),
+    status: Optional[str] = Query("all", description="Filter by status: all, active, pending, sold"),
     targetBudget: Optional[float] = Query(None, description="User's target budget for relevance scoring"),
     deduplicate: bool = Query(False, description="Whether to deduplicate cross-MLS listings"),
     page: int = Query(1, description="Page number (1-indexed)"),
@@ -111,6 +112,7 @@ def search_listings(
             minBedrooms=minBedrooms,
             city=city,
             keyword=keyword,
+            status=status,
             targetBudget=targetBudget,
             deduplicate=deduplicate,
             page=page,
@@ -124,7 +126,7 @@ def search_listings(
         else:
             error_message = str(e)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=error_message,
         )
 

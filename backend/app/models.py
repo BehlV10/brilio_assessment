@@ -24,6 +24,7 @@ class ScoredListing(Listing):
     relevanceScore: float = Field(..., description="Overall relevance score 0-100")
     budgetScore: Optional[float] = Field(None, description="Budget proximity score 0-100")
     recencyScore: float = Field(..., description="Recency score 0-100")
+    statusMultiplier: float = Field(1.0, description="Status penalty multiplier (1.0 for active, 0.7 for pending)")
     isDuplicate: bool = Field(False, description="Whether this is a duplicate of another listing")
     duplicateGroupId: Optional[str] = Field(None, description="Cluster ID for duplicates")
     otherSources: List[str] = Field(default_factory=list, description="Other MLS sources for this same property")
@@ -35,6 +36,7 @@ class SearchParams(BaseModel):
     minBedrooms: Optional[int] = None
     city: Optional[str] = None
     keyword: Optional[str] = None
+    status: Optional[str] = "all"
     targetBudget: Optional[float] = None
     deduplicate: bool = False
     page: int = 1
@@ -58,6 +60,11 @@ class SearchParams(BaseModel):
             raise ValueError("page must be greater than or equal to 1")
         if self.pageSize < 1:
             raise ValueError("pageSize must be greater than or equal to 1")
+        if self.status:
+            normalized_status = self.status.strip().lower()
+            if normalized_status not in ["all", "active", "pending", "sold"]:
+                raise ValueError("status must be one of: all, active, pending, sold")
+            self.status = normalized_status
         if self.pageSize > 100:
             raise ValueError("pageSize cannot exceed 100")
         return self
