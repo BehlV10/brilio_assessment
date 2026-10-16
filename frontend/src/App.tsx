@@ -5,7 +5,7 @@ import { SearchFilters } from './components/SearchFilters';
 import { ListingCard } from './components/ListingCard';
 import { Pagination } from './components/Pagination';
 import { ErrorAlert } from './components/ErrorAlert';
-import { Building2, Layers } from 'lucide-react';
+import { Building2, Layers, X } from 'lucide-react';
 
 const initialFilters: FilterState = {
   minPrice: '',
@@ -17,6 +17,7 @@ const initialFilters: FilterState = {
   targetBudget: '',
   deduplicate: false,
   useExpanded: false,
+  sortBy: 'relevance',
   pageSize: 5,
 };
 
@@ -68,10 +69,11 @@ export const App: React.FC = () => {
       return;
     }
 
-    // If deduplicate toggle, status dropdown, or pageSize was flipped, trigger search immediately
+    // If deduplicate toggle, status dropdown, sort order, or pageSize was flipped, trigger search immediately
     if (
       updated.deduplicate !== undefined ||
       updated.status !== undefined ||
+      updated.sortBy !== undefined ||
       (updated.pageSize !== undefined && updated.pageSize !== filters.pageSize)
     ) {
       setCurrentPage(1);
@@ -96,6 +98,28 @@ export const App: React.FC = () => {
     executeSearch(filters, newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const removeFilter = (key: keyof FilterState) => {
+    const updated: Partial<FilterState> = {};
+    if (key === 'deduplicate') updated.deduplicate = false;
+    else if (key === 'status') updated.status = 'all';
+    else if (key === 'sortBy') updated.sortBy = 'relevance';
+    else if (key === 'pageSize') updated.pageSize = 5;
+    else (updated as any)[key] = '';
+    handleFilterChange(updated);
+  };
+
+  // Collect active filters for chips
+  const activeChips: { label: string; key: keyof FilterState }[] = [];
+  if (filters.city) activeChips.push({ label: `City: ${filters.city}`, key: 'city' });
+  if (filters.keyword) activeChips.push({ label: `Keyword: "${filters.keyword}"`, key: 'keyword' });
+  if (filters.status !== 'all') activeChips.push({ label: `Status: ${filters.status}`, key: 'status' });
+  if (filters.minBedrooms) activeChips.push({ label: `${filters.minBedrooms}+ Beds`, key: 'minBedrooms' });
+  if (filters.minPrice) activeChips.push({ label: `Min: $${Number(filters.minPrice).toLocaleString()}`, key: 'minPrice' });
+  if (filters.maxPrice) activeChips.push({ label: `Max: $${Number(filters.maxPrice).toLocaleString()}`, key: 'maxPrice' });
+  if (filters.targetBudget) activeChips.push({ label: `Budget: $${Number(filters.targetBudget).toLocaleString()}`, key: 'targetBudget' });
+  if (filters.sortBy !== 'relevance') activeChips.push({ label: `Sort: ${filters.sortBy.replace('_', ' ')}`, key: 'sortBy' });
+  if (filters.deduplicate) activeChips.push({ label: 'Deduplicated', key: 'deduplicate' });
 
   return (
     <div className="container">
@@ -124,6 +148,54 @@ export const App: React.FC = () => {
 
       {/* Error Alert */}
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+
+      {/* Active Filter Chips */}
+      {activeChips.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+            Active Filters:
+          </span>
+          {activeChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => removeFilter(chip.key)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.2rem 0.55rem',
+                background: '#e0f2fe',
+                color: '#0369a1',
+                borderRadius: '999px',
+                border: '1px solid #bae6fd',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+              title={`Remove ${chip.label}`}
+            >
+              <span>{chip.label}</span>
+              <X size={12} />
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--primary)',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginLeft: '0.25rem',
+            }}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Results Header / Meta */}
       {data && !error && (
@@ -162,7 +234,12 @@ export const App: React.FC = () => {
       {!isLoading && data && data.results.length > 0 && (
         <main className="listings-list">
           {data.results.map((listing) => (
-            <ListingCard key={`${listing.source}-${listing.id}`} listing={listing} />
+            <ListingCard
+              key={`${listing.source}-${listing.id}`}
+              listing={listing}
+              keyword={filters.keyword}
+              targetBudget={filters.targetBudget}
+            />
           ))}
         </main>
       )}

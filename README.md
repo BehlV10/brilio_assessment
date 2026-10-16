@@ -99,16 +99,37 @@ Pending listings are already under contract and significantly less actionable fo
 
 ---
 
-## 4. Status Filtering & Actionability
+## 4. Status Filtering & Comparable Sales (Comps)
 
 Users can filter by listing status:
-- **All Statuses** (shows both active and pending listings, with pending listings receiving the 30% score penalty)
-- **Active Only** (hides pending listings entirely)
+- **All Statuses** (shows active, pending, and sold listings, with appropriate relevance penalties)
+- **Active Only** (hides non-active listings entirely)
 - **Pending Only** (focuses exclusively on under-contract properties)
+- **Sold Only** (enables comparable market analysis to inspect historical neighborhood pricing)
 
 ---
 
-## 5. Cross-MLS Deduplication (Anticipated Interview Requirement)
+## 5. Sort Order Override
+
+Users can switch between relevance-ranked and deterministic orderings:
+- **Best Match (Relevance)** *(Default)*: Ranked via target budget proximity, recency decay, and status weighting.
+- **Price: Low to High** (`price_asc`): Ascending list price.
+- **Price: High to Low** (`price_desc`): Descending list price.
+- **Newest Listed First** (`newest`): Ordered by listing date descending.
+- **SqFt: Largest First** (`sqft_desc`): Ordered by square footage descending.
+
+---
+
+## 6. UX Enhancements & Score Explainability
+
+- **Explain Score Calculation**: Each listing card contains an interactive `Explain Score Calculation` toggle breaking down the exact numbers (budget deviation %, recency days ago, status multiplier, and final weighted score).
+- **Keyword Highlighting**: Searched terms (e.g. `pet`, `pool`, `garage`) are dynamically highlighted in yellow `<mark>` tags inside property descriptions.
+- **Price per SqFt ($/sqft)**: Automatically calculated and displayed on every card for easy value comparison.
+- **Active Filter Chips**: Removable chips with 1-click `✕` dismiss controls appear above results.
+
+---
+
+## 7. Cross-MLS Deduplication (Anticipated Interview Requirement)
 
 ### The Observation
 MLS aggregators frequently receive overlapping listings for the identical physical property across different provider feeds. In the provided sample dataset:
@@ -129,7 +150,7 @@ MLS aggregators frequently receive overlapping listings for the identical physic
 
 ---
 
-## 6. Deliberate Input Validation & Error Handling
+## 8. Deliberate Input Validation & Error Handling
 
 Rather than crashing or failing silently, the service validates search parameters and returns HTTP `400 Bad Request` with structured error messages:
 - `minPrice > maxPrice`: e.g. `"minPrice ($600,000) cannot be greater than maxPrice ($400,000)"`
@@ -141,7 +162,7 @@ Rather than crashing or failing silently, the service validates search parameter
 
 ---
 
-## 7. Architecture & Trade-offs
+## 9. Architecture & Trade-offs
 
 | Component | Choice | Trade-offs & Rationale |
 | :--- | :--- | :--- |

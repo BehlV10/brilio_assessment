@@ -107,6 +107,7 @@ def search_listings(
     targetBudget: Optional[float] = Query(None, description="User's target budget for relevance scoring"),
     deduplicate: bool = Query(False, description="Whether to deduplicate cross-MLS listings"),
     useExpanded: bool = Query(False, description="Whether to search the expanded synthetic dataset"),
+    sortBy: Optional[str] = Query("relevance", description="Sort order: relevance, price_asc, price_desc, newest, sqft_desc"),
     page: int = Query(1, description="Page number (1-indexed)"),
     pageSize: int = Query(5, description="Number of results per page"),
 ):
@@ -126,6 +127,7 @@ def search_listings(
             targetBudget=targetBudget,
             deduplicate=deduplicate,
             useExpanded=useExpanded,
+            sortBy=sortBy,
             page=page,
             pageSize=pageSize,
         )
@@ -147,12 +149,12 @@ def search_listings(
     filtered = filter_listings(listings, params)
 
     # 2. Relevance Scoring & Sorting
-    scored = calculate_scores(filtered, target_budget=params.targetBudget)
+    scored = calculate_scores(filtered, target_budget=params.targetBudget, sort_by=params.sortBy)
 
     # 3. Deduplication (if requested)
     dedup_count = 0
     if params.deduplicate:
-        scored, dedup_count = deduplicate_scored_listings(scored)
+        scored, dedup_count = deduplicate_scored_listings(scored, sort_by=params.sortBy)
 
     # 4. Pagination
     page_results, total_count, total_pages = paginate_listings(

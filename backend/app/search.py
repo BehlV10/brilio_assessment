@@ -74,8 +74,10 @@ def filter_listings(listings: List[Listing], params: SearchParams) -> List[Listi
             if city_query not in item.city.strip().lower():
                 continue
         if keyword_query:
-            # Case-insensitive substring match in description
-            if keyword_query not in item.description.lower():
+            # Case-insensitive substring match in description OR address
+            in_desc = keyword_query in item.description.lower()
+            in_addr = keyword_query in item.address.lower()
+            if not in_desc and not in_addr:
                 continue
                 
         filtered.append(item)
@@ -83,10 +85,34 @@ def filter_listings(listings: List[Listing], params: SearchParams) -> List[Listi
     return filtered
 
 
+def sort_scored_listings(listings: List[ScoredListing], sort_by: str = "relevance") -> List[ScoredListing]:
+    """Sorts listings based on the specified sort order with deterministic tie-breaking."""
+    sb = (sort_by or "relevance").lower()
+    if sb == "price_asc":
+        listings.sort(key=lambda x: (x.price, -x.relevanceScore, x.id))
+    elif sb == "price_desc":
+        listings.sort(key=lambda x: (-x.price, -x.relevanceScore, x.id))
+    elif sb == "newest":
+        listings.sort(key=lambda x: (-datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(), -x.relevanceScore, x.id))
+    elif sb == "sqft_desc":
+        listings.sort(key=lambda x: (-x.sqft, x.price, x.id))
+    else:  # "relevance"
+        listings.sort(
+            key=lambda x: (
+                -x.relevanceScore,
+                -datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(),
+                x.price,
+                x.id,
+            )
+        )
+    return listings
+
+
 def calculate_scores(
     listings: List[Listing],
     target_budget: Optional[float] = None,
     ref_date: Optional[date] = None,
+    sort_by: str = "relevance",
 ) -> List[ScoredListing]:
     """
     Calculates relevance scores based on:
@@ -140,6 +166,7 @@ def calculate_scores(
             status_multiplier = 1.0
 
         relevance = round(base_relevance * status_multiplier, 1)
+        price_per_sqft = round(item.price / item.sqft) if item.sqft > 0 else None
 
         scored.append(
             ScoredListing(
@@ -148,31 +175,22 @@ def calculate_scores(
                 budgetScore=budget_score,
                 recencyScore=recency_score,
                 statusMultiplier=status_multiplier,
+                pricePerSqft=price_per_sqft,
+                daysAgo=days_ago,
                 isDuplicate=False,
                 duplicateGroupId=get_deduplication_key(item),
                 otherSources=[],
             )
         )
 
-    # Deterministic sorting:
-    # 1. Relevance score descending
-    # 2. Listed date descending
-    # 3. Price ascending
-    # 4. ID ascending
-    scored.sort(
-        key=lambda x: (
-            -x.relevanceScore,
-            -datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(),
-            x.price,
-            x.id,
-        )
-    )
-
+    # Sort based on requested sort order
+    sort_scored_listings(scored, sort_by=sort_by)
     return scored
 
 
 def deduplicate_scored_listings(
     listings: List[ScoredListing],
+    sort_by: str = "relevance",
 ) -> Tuple[List[ScoredListing], int]:
     """
     Clusters listings representing the same property across different MLS sources.
@@ -189,17 +207,14 @@ def deduplicate_scored_listings(
     removed_count = 0
 
     for cluster in groups.values():
-        # The listings are already sorted by relevance score descending
         # Select best listing (prefer active status, then top score)
         best = cluster[0]
-        # If best is pending and another is active, pick active
         active_candidates = [c for c in cluster if c.status.lower() == "active"]
         if active_candidates and best.status.lower() != "active":
             best = active_candidates[0]
 
         other_sources = [c.source for c in cluster if c.id != best.id or c.source != best.source]
         
-        # Clone with other sources populated
         updated_best = best.model_copy(
             update={
                 "isDuplicate": len(cluster) > 1,
@@ -209,16 +224,8 @@ def deduplicate_scored_listings(
         deduplicated.append(updated_best)
         removed_count += len(cluster) - 1
 
-    # Preserve sorted order
-    deduplicated.sort(
-        key=lambda x: (
-            -x.relevanceScore,
-            -datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(),
-            x.price,
-            x.id,
-        )
-    )
-
+    # Preserve requested sort order
+    sort_scored_listings(deduplicated, sort_by=sort_by)
     return deduplicated, removed_count
 
 

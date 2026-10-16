@@ -193,3 +193,38 @@ def test_expanded_dataset_toggle():
     assert "Alexandria" in cities
     assert "Bethesda" in cities
 
+
+def test_sort_by_price_ascending():
+    res = client.get("/api/listings/search", params={"sortBy": "price_asc", "pageSize": 12})
+    assert res.status_code == 200
+    prices = [r["price"] for r in res.json()["results"]]
+    assert prices == sorted(prices)
+
+
+def test_sort_by_price_descending():
+    res = client.get("/api/listings/search", params={"sortBy": "price_desc", "pageSize": 12})
+    assert res.status_code == 200
+    prices = [r["price"] for r in res.json()["results"]]
+    assert prices == sorted(prices, reverse=True)
+
+
+def test_sort_by_newest():
+    res = client.get("/api/listings/search", params={"sortBy": "newest", "pageSize": 12})
+    assert res.status_code == 200
+    dates = [r["listedDate"] for r in res.json()["results"]]
+    assert dates == sorted(dates, reverse=True)
+
+
+def test_sort_by_sqft_descending():
+    res = client.get("/api/listings/search", params={"sortBy": "sqft_desc", "pageSize": 12})
+    assert res.status_code == 200
+    sqfts = [r["sqft"] for r in res.json()["results"]]
+    assert sqfts == sorted(sqfts, reverse=True)
+
+
+def test_invalid_sort_by():
+    res = client.get("/api/listings/search", params={"sortBy": "invalid_order"})
+    assert res.status_code == 400
+    assert "sortBy must be one of: relevance, price_asc, price_desc, newest, sqft_desc" in res.json()["detail"]
+
+

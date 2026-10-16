@@ -18,6 +18,8 @@ export interface Listing {
   budgetScore: number | null;
   recencyScore: number;
   statusMultiplier?: number;
+  pricePerSqft?: number;
+  daysAgo?: number;
   isDuplicate: boolean;
   duplicateGroupId?: string | null;
   otherSources: string[];
@@ -33,6 +35,7 @@ export interface FilterState {
   targetBudget: string;
   deduplicate: boolean;
   useExpanded: boolean;
+  sortBy: string;
   pageSize: number;
 }
 

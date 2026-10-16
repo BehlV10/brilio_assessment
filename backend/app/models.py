@@ -24,7 +24,9 @@ class ScoredListing(Listing):
     relevanceScore: float = Field(..., description="Overall relevance score 0-100")
     budgetScore: Optional[float] = Field(None, description="Budget proximity score 0-100")
     recencyScore: float = Field(..., description="Recency score 0-100")
-    statusMultiplier: float = Field(1.0, description="Status penalty multiplier (1.0 for active, 0.7 for pending)")
+    statusMultiplier: float = Field(1.0, description="Status penalty multiplier (1.0 for active, 0.7 for pending, 0.3 for sold)")
+    pricePerSqft: Optional[int] = Field(None, description="Calculated price per square foot")
+    daysAgo: Optional[int] = Field(None, description="Days since listed date relative to market reference")
     isDuplicate: bool = Field(False, description="Whether this is a duplicate of another listing")
     duplicateGroupId: Optional[str] = Field(None, description="Cluster ID for duplicates")
     otherSources: List[str] = Field(default_factory=list, description="Other MLS sources for this same property")
@@ -40,6 +42,7 @@ class SearchParams(BaseModel):
     targetBudget: Optional[float] = None
     deduplicate: bool = False
     useExpanded: bool = False
+    sortBy: Optional[str] = "relevance"
     page: int = 1
     pageSize: int = 5
 
@@ -66,6 +69,11 @@ class SearchParams(BaseModel):
             if normalized_status not in ["all", "active", "pending", "sold"]:
                 raise ValueError("status must be one of: all, active, pending, sold")
             self.status = normalized_status
+        if self.sortBy:
+            normalized_sort = self.sortBy.strip().lower()
+            if normalized_sort not in ["relevance", "price_asc", "price_desc", "newest", "sqft_desc"]:
+                raise ValueError("sortBy must be one of: relevance, price_asc, price_desc, newest, sqft_desc")
+            self.sortBy = normalized_sort
         if self.pageSize > 100:
             raise ValueError("pageSize cannot exceed 100")
         return self

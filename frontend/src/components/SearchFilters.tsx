@@ -146,6 +146,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
             <option value="all">All Statuses</option>
             <option value="active">Active Only</option>
             <option value="pending">Pending Only</option>
+            <option value="sold">Sold Only</option>
           </select>
         </div>
 
@@ -195,6 +196,25 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
             value={filters.targetBudget}
             onChange={(e) => onChange({ targetBudget: e.target.value })}
           />
+        </div>
+
+        {/* Sort Order */}
+        <div className="filter-group">
+          <label className="filter-label" htmlFor="sortBy">
+            Sort Order
+          </label>
+          <select
+            id="sortBy"
+            className="filter-select"
+            value={filters.sortBy}
+            onChange={(e) => onChange({ sortBy: e.target.value })}
+          >
+            <option value="relevance">Best Match (Relevance)</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="newest">Newest Listed First</option>
+            <option value="sqft_desc">SqFt: Largest First</option>
+          </select>
         </div>
 
         {/* Page Size */}

@@ -48,6 +48,9 @@ export async function searchListings(
   if (filters.useExpanded) {
     params.set('useExpanded', 'true');
   }
+  if (filters.sortBy) {
+    params.set('sortBy', filters.sortBy);
+  }
 
   params.set('page', page.toString());
   params.set('pageSize', filters.pageSize.toString());

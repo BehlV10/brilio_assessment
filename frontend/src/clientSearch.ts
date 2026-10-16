@@ -69,7 +69,11 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
     if (minBed !== null && item.bedrooms < minBed) return false;
     if (statusQ && statusQ !== 'all' && item.status.toLowerCase() !== statusQ) return false;
     if (cityQ && !item.city.toLowerCase().includes(cityQ)) return false;
-    if (kwQ && !item.description.toLowerCase().includes(kwQ)) return false;
+    if (kwQ) {
+      const inDesc = item.description.toLowerCase().includes(kwQ);
+      const inAddr = item.address.toLowerCase().includes(kwQ);
+      if (!inDesc && !inAddr) return false;
+    }
     return true;
   });
 
@@ -115,6 +119,7 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
     const itemStatus = item.status.toLowerCase();
     const statusMultiplier = itemStatus === 'pending' ? 0.7 : itemStatus === 'sold' ? 0.3 : 1.0;
     const relevanceScore = Number((baseRelevance * statusMultiplier).toFixed(1));
+    const pricePerSqft = item.sqft > 0 ? Math.round(item.price / item.sqft) : undefined;
 
     return {
       ...item,
@@ -122,22 +127,48 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
       budgetScore,
       recencyScore,
       statusMultiplier,
+      pricePerSqft,
+      daysAgo: diffDays,
       isDuplicate: false,
       duplicateGroupId: getDeduplicationKey(item),
       otherSources: [],
     };
   });
 
-  // Sort deterministically
-  scored.sort((a, b) => {
-    if (b.relevanceScore !== a.relevanceScore) {
-      return b.relevanceScore - a.relevanceScore;
-    }
-    const dateDiff = new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
-    if (dateDiff !== 0) return dateDiff;
-    if (a.price !== b.price) return a.price - b.price;
-    return a.id.localeCompare(b.id);
-  });
+  function sortClientListings(list: Listing[], sortBy: string): Listing[] {
+    const sb = (sortBy || 'relevance').toLowerCase();
+    list.sort((a, b) => {
+      if (sb === 'price_asc') {
+        if (a.price !== b.price) return a.price - b.price;
+        return b.relevanceScore - a.relevanceScore;
+      }
+      if (sb === 'price_desc') {
+        if (a.price !== b.price) return b.price - a.price;
+        return b.relevanceScore - a.relevanceScore;
+      }
+      if (sb === 'newest') {
+        const dateDiff = new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return b.relevanceScore - a.relevanceScore;
+      }
+      if (sb === 'sqft_desc') {
+        if (a.sqft !== b.sqft) return b.sqft - a.sqft;
+        return a.price - b.price;
+      }
+      // 'relevance'
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+      const dateDiff = new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      if (a.price !== b.price) return a.price - b.price;
+      return a.id.localeCompare(b.id);
+    });
+    return list;
+  }
+
+  // Initial sort
+  sortClientListings(scored, filters.sortBy);
 
   // 3. Deduplication
   let finalResults = scored;
@@ -174,13 +205,7 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
       dedupCount += cluster.length - 1;
     }
 
-    deduped.sort((a, b) => {
-      if (b.relevanceScore !== a.relevanceScore) {
-        return b.relevanceScore - a.relevanceScore;
-      }
-      return new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
-    });
-
+    sortClientListings(deduped, filters.sortBy);
     finalResults = deduped;
   }
 
