@@ -1,10 +1,9 @@
 import { FilterState, SearchResponse } from './types';
-import { executeClientSearch } from './clientSearch';
-import sampleData from './data/sample_listings.json';
+import { executeClientSearch, getClientCities } from './clientSearch';
 
-export async function fetchCities(): Promise<string[]> {
+export async function fetchCities(useExpanded: boolean = false): Promise<string[]> {
   try {
-    const res = await fetch('/api/listings/cities');
+    const res = await fetch(`/api/listings/cities?useExpanded=${useExpanded}`);
     if (res.ok) {
       return await res.json();
     }
@@ -13,8 +12,7 @@ export async function fetchCities(): Promise<string[]> {
   }
 
   // Fallback to client-side data
-  const cities = Array.from(new Set((sampleData as any[]).map((i) => i.city)));
-  return cities.sort();
+  return getClientCities(useExpanded);
 }
 
 export async function searchListings(
@@ -46,6 +44,9 @@ export async function searchListings(
   }
   if (filters.deduplicate) {
     params.set('deduplicate', 'true');
+  }
+  if (filters.useExpanded) {
+    params.set('useExpanded', 'true');
   }
 
   params.set('page', page.toString());

@@ -16,6 +16,7 @@ const initialFilters: FilterState = {
   status: 'all',
   targetBudget: '',
   deduplicate: false,
+  useExpanded: false,
   pageSize: 5,
 };
 
@@ -29,7 +30,7 @@ export const App: React.FC = () => {
 
   // Load available cities on mount
   useEffect(() => {
-    fetchCities().then(setCities);
+    fetchCities(false).then(setCities);
   }, []);
 
   // Fetch listings function
@@ -58,6 +59,14 @@ export const App: React.FC = () => {
   const handleFilterChange = (updated: Partial<FilterState>) => {
     const nextFilters = { ...filters, ...updated };
     setFilters(nextFilters);
+
+    // If dataset toggle was changed, also reload cities
+    if (updated.useExpanded !== undefined) {
+      fetchCities(nextFilters.useExpanded).then(setCities);
+      setCurrentPage(1);
+      executeSearch(nextFilters, 1);
+      return;
+    }
 
     // If deduplicate toggle, status dropdown, or pageSize was flipped, trigger search immediately
     if (

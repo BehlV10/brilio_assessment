@@ -16,14 +16,16 @@ from app.search import (
 
 from contextlib import asynccontextmanager
 
-# In-memory store of ingested listings
-_listings: List[Listing] = []
+# In-memory stores of ingested listings
+_sample_listings: List[Listing] = []
+_expanded_listings: List[Listing] = []
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _listings
-    _listings = load_listings()
+    global _sample_listings, _expanded_listings
+    _sample_listings = load_listings(use_expanded=False)
+    _expanded_listings = load_listings(use_expanded=True)
     yield
 
 
@@ -44,11 +46,16 @@ app.add_middleware(
 )
 
 
-def get_listings() -> List[Listing]:
-    global _listings
-    if not _listings:
-        _listings = load_listings()
-    return _listings
+def get_listings(use_expanded: bool = False) -> List[Listing]:
+    global _sample_listings, _expanded_listings
+    if use_expanded:
+        if not _expanded_listings:
+            _expanded_listings = load_listings(use_expanded=True)
+        return _expanded_listings
+    else:
+        if not _sample_listings:
+            _sample_listings = load_listings(use_expanded=False)
+        return _sample_listings
 
 
 @app.exception_handler(RequestValidationError)
@@ -80,9 +87,11 @@ def health_check():
 
 
 @app.get("/api/listings/cities", response_model=List[str])
-def list_cities():
+def list_cities(
+    useExpanded: bool = Query(False, description="Whether to include cities from expanded dataset"),
+):
     """Returns sorted unique cities available in the dataset."""
-    listings = get_listings()
+    listings = get_listings(use_expanded=useExpanded)
     cities = sorted(list({item.city for item in listings}))
     return cities
 
@@ -97,6 +106,7 @@ def search_listings(
     status: Optional[str] = Query("all", description="Filter by status: all, active, pending, sold"),
     targetBudget: Optional[float] = Query(None, description="User's target budget for relevance scoring"),
     deduplicate: bool = Query(False, description="Whether to deduplicate cross-MLS listings"),
+    useExpanded: bool = Query(False, description="Whether to search the expanded synthetic dataset"),
     page: int = Query(1, description="Page number (1-indexed)"),
     pageSize: int = Query(5, description="Number of results per page"),
 ):
@@ -115,6 +125,7 @@ def search_listings(
             status=status,
             targetBudget=targetBudget,
             deduplicate=deduplicate,
+            useExpanded=useExpanded,
             page=page,
             pageSize=pageSize,
         )
@@ -130,7 +141,7 @@ def search_listings(
             detail=error_message,
         )
 
-    listings = get_listings()
+    listings = get_listings(use_expanded=params.useExpanded)
 
     # 1. Filtering
     filtered = filter_listings(listings, params)

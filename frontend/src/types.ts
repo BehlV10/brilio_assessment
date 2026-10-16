@@ -32,6 +32,7 @@ export interface FilterState {
   status: string;
   targetBudget: string;
   deduplicate: boolean;
+  useExpanded: boolean;
   pageSize: number;
 }
 

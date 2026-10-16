@@ -170,3 +170,26 @@ def test_empty_results_valid_response():
     assert data["results"] == []
     assert data["total"] == 0
     assert data["totalPages"] == 0
+
+
+def test_expanded_dataset_toggle():
+    # Sample dataset has 12 items
+    res_sample = client.get("/api/listings/search", params={"useExpanded": False, "pageSize": 100})
+    assert res_sample.status_code == 200
+    assert res_sample.json()["total"] == 12
+
+    # Expanded dataset has > 100 items
+    res_expanded = client.get("/api/listings/search", params={"useExpanded": True, "pageSize": 10})
+    assert res_expanded.status_code == 200
+    data_expanded = res_expanded.json()
+    assert data_expanded["total"] > 100
+    assert data_expanded["totalPages"] > 10
+
+    # Cities in expanded dataset include Arlington, Alexandria, Bethesda
+    res_cities = client.get("/api/listings/cities", params={"useExpanded": True})
+    assert res_cities.status_code == 200
+    cities = res_cities.json()
+    assert "Arlington" in cities
+    assert "Alexandria" in cities
+    assert "Bethesda" in cities
+

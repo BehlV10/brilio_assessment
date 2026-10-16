@@ -1,6 +1,6 @@
 import React from 'react';
 import { FilterState } from '../types';
-import { Search, RotateCcw, CopyCheck } from 'lucide-react';
+import { Search, RotateCcw, CopyCheck, Database } from 'lucide-react';
 
 interface SearchFiltersProps {
   filters: FilterState;
@@ -21,6 +21,62 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
 }) => {
   return (
     <form className="filter-card" onSubmit={onSubmit}>
+      {/* Dataset Selection Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          paddingBottom: '1rem',
+          marginBottom: '1.25rem',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: 600 }}>
+          <Database size={16} color="var(--primary)" />
+          <span>Active Dataset:</span>
+        </div>
+
+        <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+          <button
+            type="button"
+            className="btn"
+            style={{
+              padding: '0.35rem 0.85rem',
+              fontSize: '0.8rem',
+              borderRadius: '6px',
+              border: 'none',
+              background: !filters.useExpanded ? 'white' : 'transparent',
+              color: !filters.useExpanded ? 'var(--primary)' : 'var(--text-muted)',
+              boxShadow: !filters.useExpanded ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+              fontWeight: !filters.useExpanded ? 700 : 500,
+            }}
+            onClick={() => onChange({ useExpanded: false, city: '' })}
+          >
+            Sample (12 listings)
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{
+              padding: '0.35rem 0.85rem',
+              fontSize: '0.8rem',
+              borderRadius: '6px',
+              border: 'none',
+              background: filters.useExpanded ? 'white' : 'transparent',
+              color: filters.useExpanded ? 'var(--primary)' : 'var(--text-muted)',
+              boxShadow: filters.useExpanded ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+              fontWeight: filters.useExpanded ? 700 : 500,
+            }}
+            onClick={() => onChange({ useExpanded: true, city: '' })}
+          >
+            Expanded (112 listings)
+          </button>
+        </div>
+      </div>
+
       <div className="filter-grid">
         {/* Keyword Search */}
         <div className="filter-group" style={{ gridColumn: 'span 2' }}>

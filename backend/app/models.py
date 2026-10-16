@@ -39,6 +39,7 @@ class SearchParams(BaseModel):
     status: Optional[str] = "all"
     targetBudget: Optional[float] = None
     deduplicate: bool = False
+    useExpanded: bool = False
     page: int = 1
     pageSize: int = 5
 

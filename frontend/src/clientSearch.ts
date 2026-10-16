@@ -1,5 +1,12 @@
 import sampleData from './data/sample_listings.json';
+import expandedData from './data/expanded_listings.json';
 import { FilterState, Listing, SearchResponse } from './types';
+
+export function getClientCities(useExpanded: boolean = false): string[] {
+  const dataset = useExpanded ? expandedData : sampleData;
+  const cities = Array.from(new Set((dataset as any[]).map((i) => i.city)));
+  return cities.sort();
+}
 
 function normalizeAddress(address: string): string {
   let s = address.toLowerCase().replace(/[,.#]/g, ' ');
@@ -54,7 +61,9 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
   const kwQ = filters.keyword.trim().toLowerCase();
   const statusQ = filters.status ? filters.status.trim().toLowerCase() : 'all';
 
-  const filtered = (sampleData as any[]).filter((item) => {
+  const dataset = filters.useExpanded ? expandedData : sampleData;
+
+  const filtered = (dataset as any[]).filter((item) => {
     if (minP !== null && item.price < minP) return false;
     if (maxP !== null && item.price > maxP) return false;
     if (minBed !== null && item.bedrooms < minBed) return false;
