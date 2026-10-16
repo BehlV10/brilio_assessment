@@ -8,6 +8,16 @@ interface ListingCardProps {
   targetBudget?: string;
 }
 
+const escapeRegExp = (str: string): string => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
 export const ListingCard: React.FC<ListingCardProps> = ({
   listing,
   keyword,
@@ -15,21 +25,16 @@ export const ListingCard: React.FC<ListingCardProps> = ({
 }) => {
   const [showMath, setShowMath] = useState(false);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
+  const formatCurrency = (val: number) => currencyFormatter.format(val);
 
   const isHighRelevance = listing.relevanceScore >= 85;
 
-  // Highlight matching keyword
+  // Highlight matching keyword safely without regex injection crash
   const highlightText = (text: string, searchWord?: string) => {
     if (!searchWord || !searchWord.trim()) return text;
     const q = searchWord.trim();
-    const regex = new RegExp(`(${q})`, 'gi');
+    const escaped = escapeRegExp(q);
+    const regex = new RegExp(`(${escaped})`, 'gi');
     const parts = text.split(regex);
     return parts.map((part, i) =>
       regex.test(part) ? (
@@ -152,6 +157,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         <button
           type="button"
           onClick={() => setShowMath(!showMath)}
+          aria-expanded={showMath}
+          aria-controls={`score-breakdown-${listing.id}`}
           style={{
             background: 'none',
             border: 'none',
@@ -165,13 +172,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             padding: '2px 0',
           }}
         >
-          <Info size={13} />
+          <Info size={13} aria-hidden="true" />
           {showMath ? 'Hide Score Formula' : 'Explain Score Calculation'}
-          {showMath ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          {showMath ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
         </button>
 
         {showMath && (
           <div
+            id={`score-breakdown-${listing.id}`}
             style={{
               marginTop: '0.5rem',
               padding: '0.75rem 1rem',

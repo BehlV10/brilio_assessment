@@ -163,6 +163,20 @@ def test_invalid_page_zero_or_negative():
     assert "page must be greater than or equal to 1" in response.json()["detail"]
 
 
+def test_invalid_page_size_exceeds_max():
+    response = client.get("/api/listings/search", params={"pageSize": 101})
+    assert response.status_code == 400
+    assert "pageSize cannot exceed 100" in response.json()["detail"]
+
+
+def test_invalid_page_non_numeric():
+    response = client.get("/api/listings/search", params={"page": "not_a_number"})
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "page" in detail
+    assert "valid integer" in detail
+
+
 def test_empty_results_valid_response():
     response = client.get("/api/listings/search", params={"city": "NonExistentCity"})
     assert response.status_code == 200

@@ -6,49 +6,64 @@ from typing import Dict, List, Optional, Tuple
 from app.models import Listing, ScoredListing, SearchParams
 
 
+RE_PUNCT = re.compile(r"[,\.]")
+RE_HASH = re.compile(r"\#\s*")
+RE_UNIT_EXTRACT = re.compile(r"\bunit\s+([a-z0-9\-]+)\b")
+RE_EXPANSIONS = [
+    (re.compile(r"\bst\b"), "street"),
+    (re.compile(r"\bave\b"), "avenue"),
+    (re.compile(r"\bct\b"), "court"),
+    (re.compile(r"\brd\b"), "road"),
+    (re.compile(r"\bln\b"), "lane"),
+    (re.compile(r"\bdr\b"), "drive"),
+    (re.compile(r"\bblvd\b"), "boulevard"),
+    (re.compile(r"\bapt\b"), "unit"),
+    (re.compile(r"\bste\b"), "unit"),
+    (re.compile(r"\bapartment\b"), "unit"),
+    (re.compile(r"\bsuite\b"), "unit"),
+]
+
+
 def normalize_address(address: str) -> str:
     """
     Normalizes an address string for entity resolution:
-    - Lowercases & removes punctuation
+    - Lowercases & normalizes punctuation
+    - Replaces '#' with 'unit '
     - Expands common street abbreviations
-    - Normalizes unit/apartment designations
+    - Normalizes unit/apartment designations to 'unit'
     """
     s = address.lower()
-    s = re.sub(r"[,\.\#]", " ", s)
+    s = RE_HASH.sub("unit ", s)
+    s = RE_PUNCT.sub(" ", s)
     
-    # Expand street suffixes
-    replacements = {
-        r"\bst\b": "street",
-        r"\bave\b": "avenue",
-        r"\bct\b": "court",
-        r"\brd\b": "road",
-        r"\bln\b": "lane",
-        r"\bdr\b": "drive",
-        r"\bblvd\b": "boulevard",
-        r"\bapt\b": "unit",
-        r"\bste\b": "unit",
-    }
-    for pattern, repl in replacements.items():
-        s = re.sub(pattern, repl, s)
+    for pattern, repl in RE_EXPANSIONS:
+        s = pattern.sub(repl, s)
         
     # Collapse multiple whitespaces
-    s = " ".join(s.split())
-    return s
+    return " ".join(s.split())
 
 
 def get_deduplication_key(listing: Listing) -> str:
     """
-    Generates a canonical key to cluster duplicate listings.
-    Uses rounded lat/long coordinates (within ~10m) and street number + root,
-    ensuring robust matching across MLS feeds.
+    Generates a canonical key to cluster duplicate listings across feeds.
+    Combines:
+    1. Street number or leading token
+    2. Unit/apartment designator (e.g. 'unit_4b') to protect distinct condos in the same building
+    3. Rounded lat/long coordinates (4 decimals ~ 11 meters)
     """
     norm_addr = normalize_address(listing.address)
-    # Extract leading numbers if any (e.g. "123")
     tokens = norm_addr.split()
-    street_num = tokens[0] if tokens and tokens[0].isdigit() else ""
-    # Use rounded lat/long (4 decimals ~ 11 meters)
+    street_num = tokens[0] if tokens else ""
+    
+    # Check for unit / apt designation (e.g. "unit 4b")
+    unit_match = RE_UNIT_EXTRACT.search(norm_addr)
+    unit_part = f"unit_{unit_match.group(1)}" if unit_match else ""
+    
     lat_r = round(listing.latitude, 4)
     lon_r = round(listing.longitude, 4)
+    
+    if unit_part:
+        return f"{street_num}_{unit_part}_{lat_r}_{lon_r}"
     return f"{street_num}_{lat_r}_{lon_r}"
 
 
@@ -93,14 +108,14 @@ def sort_scored_listings(listings: List[ScoredListing], sort_by: str = "relevanc
     elif sb == "price_desc":
         listings.sort(key=lambda x: (-x.price, -x.relevanceScore, x.id))
     elif sb == "newest":
-        listings.sort(key=lambda x: (-datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(), -x.relevanceScore, x.id))
+        listings.sort(key=lambda x: (x.daysAgo, -x.relevanceScore, x.id))
     elif sb == "sqft_desc":
         listings.sort(key=lambda x: (-x.sqft, x.price, x.id))
     else:  # "relevance"
         listings.sort(
             key=lambda x: (
                 -x.relevanceScore,
-                -datetime.strptime(x.listedDate, "%Y-%m-%d").toordinal(),
+                x.daysAgo,
                 x.price,
                 x.id,
             )
@@ -213,12 +228,12 @@ def deduplicate_scored_listings(
         if active_candidates and best.status.lower() != "active":
             best = active_candidates[0]
 
-        other_sources = [c.source for c in cluster if c.id != best.id or c.source != best.source]
+        other_sources = sorted(list({c.source for c in cluster if c.id != best.id}))
         
         updated_best = best.model_copy(
             update={
                 "isDuplicate": len(cluster) > 1,
-                "otherSources": list(set(other_sources)),
+                "otherSources": other_sources,
             }
         )
         deduplicated.append(updated_best)

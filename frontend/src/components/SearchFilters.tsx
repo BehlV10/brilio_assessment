@@ -237,18 +237,28 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
 
       {/* Deduplication & Actions */}
       <div className="filter-actions-row">
-        <div
+        <button
+          type="button"
+          role="switch"
+          aria-checked={filters.deduplicate}
           className="toggle-container"
           onClick={() => onChange({ deduplicate: !filters.deduplicate })}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              onChange({ deduplicate: !filters.deduplicate });
+            }
+          }}
           title="Cluster matching listings across MLS sources and retain the best result"
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
         >
-          <div className={`toggle-switch ${filters.deduplicate ? 'active' : ''}`}>
+          <div className={`toggle-switch ${filters.deduplicate ? 'active' : ''}`} aria-hidden="true">
             <div className="toggle-thumb" />
           </div>
           <span className="toggle-text" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <CopyCheck size={16} /> Hide duplicates across MLS sources
+            <CopyCheck size={16} aria-hidden="true" /> Hide duplicates across MLS sources
           </span>
-        </div>
+        </button>
 
         <div className="btn-group">
           <button type="button" className="btn btn-secondary" onClick={onReset}>

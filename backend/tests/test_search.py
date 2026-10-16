@@ -228,3 +228,91 @@ def test_status_penalty_applied_to_pending(sample_data):
     # but with 0.7 multiplier, relevanceScore is multiplied by 0.7
     assert a7_scored.relevanceScore < 65.0
 
+
+def test_status_penalty_applied_to_sold():
+    listing = Listing(
+        id="SOLD_1",
+        source="MLS_A",
+        address="100 Sold St",
+        city="Fairfax",
+        state="VA",
+        zip="22030",
+        price=500000.0,
+        bedrooms=3,
+        bathrooms=2.0,
+        sqft=1500,
+        latitude=38.8,
+        longitude=-77.3,
+        listedDate="2026-09-04",
+        status="sold",
+        description="Sold property comp",
+    )
+    scored = calculate_scores([listing], target_budget=500000.0, ref_date=date(2026, 9, 4))
+    assert scored[0].statusMultiplier == 0.3
+    # 100.0 * 0.3 = 30.0
+    assert scored[0].relevanceScore == 30.0
+
+
+def test_multi_unit_condo_deduplication_preserves_distinct_units():
+    unit_1 = Listing(
+        id="C1",
+        source="MLS_A",
+        address="100 Main St Apt 1",
+        city="Fairfax",
+        state="VA",
+        zip="22030",
+        price=350000.0,
+        bedrooms=1,
+        bathrooms=1.0,
+        sqft=700,
+        latitude=38.8462,
+        longitude=-77.3064,
+        listedDate="2026-09-01",
+        status="active",
+        description="First floor unit",
+    )
+    unit_2 = Listing(
+        id="C2",
+        source="MLS_A",
+        address="100 Main St Apt 2",
+        city="Fairfax",
+        state="VA",
+        zip="22030",
+        price=375000.0,
+        bedrooms=1,
+        bathrooms=1.0,
+        sqft=720,
+        latitude=38.8462,
+        longitude=-77.3064,
+        listedDate="2026-09-01",
+        status="active",
+        description="Second floor unit",
+    )
+    unit_1_dup = Listing(
+        id="C1_B",
+        source="MLS_B",
+        address="100 Main Street, Unit 1",
+        city="Fairfax",
+        state="VA",
+        zip="22030",
+        price=352000.0,
+        bedrooms=1,
+        bathrooms=1.0,
+        sqft=700,
+        latitude=38.8462,
+        longitude=-77.3064,
+        listedDate="2026-08-30",
+        status="active",
+        description="First floor unit on MLS B",
+    )
+
+    scored = calculate_scores([unit_1, unit_2, unit_1_dup], target_budget=360000.0)
+    deduped, removed_count = deduplicate_scored_listings(scored)
+
+    # Unit 1 and Unit 1_dup should merge, but Unit 2 must be preserved!
+    assert removed_count == 1
+    assert len(deduped) == 2
+    addresses = [d.address for d in deduped]
+    assert any("Apt 1" in a or "Unit 1" in a for a in addresses)
+    assert any("Apt 2" in a for a in addresses)
+

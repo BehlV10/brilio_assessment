@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Request, status as http_status
 from fastapi.exceptions import RequestValidationError
@@ -40,7 +41,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -144,12 +145,22 @@ def search_listings(
         )
 
     listings = get_listings(use_expanded=params.useExpanded)
+    dataset_ref_date = (
+        max(datetime.strptime(item.listedDate, "%Y-%m-%d").date() for item in listings)
+        if listings
+        else None
+    )
 
     # 1. Filtering
     filtered = filter_listings(listings, params)
 
     # 2. Relevance Scoring & Sorting
-    scored = calculate_scores(filtered, target_budget=params.targetBudget, sort_by=params.sortBy)
+    scored = calculate_scores(
+        filtered,
+        target_budget=params.targetBudget,
+        ref_date=dataset_ref_date,
+        sort_by=params.sortBy,
+    )
 
     # 3. Deduplication (if requested)
     dedup_count = 0

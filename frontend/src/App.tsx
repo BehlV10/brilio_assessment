@@ -106,7 +106,11 @@ export const App: React.FC = () => {
     else if (key === 'sortBy') updated.sortBy = 'relevance';
     else if (key === 'pageSize') updated.pageSize = 5;
     else (updated as any)[key] = '';
-    handleFilterChange(updated);
+
+    const nextFilters = { ...filters, ...updated };
+    setFilters(nextFilters);
+    setCurrentPage(1);
+    executeSearch(nextFilters, 1);
   };
 
   // Collect active filters for chips
@@ -124,7 +128,7 @@ export const App: React.FC = () => {
   return (
     <div className="container">
       {/* Header */}
-      <header className="app-header">
+      <header className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h1 className="app-title">
             <Building2 size={30} color="#2563eb" />
@@ -134,6 +138,37 @@ export const App: React.FC = () => {
             Cross-MLS property aggregator with relevance scoring & deduplication
           </p>
         </div>
+        {data?.engineMode && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              background: data.engineMode === 'backend' ? '#ecfdf5' : '#f0f9ff',
+              color: data.engineMode === 'backend' ? '#047857' : '#0369a1',
+              border: `1px solid ${data.engineMode === 'backend' ? '#a7f3d0' : '#bae6fd'}`,
+            }}
+            title={
+              data.engineMode === 'backend'
+                ? 'Serving live results from local Python FastAPI REST API'
+                : 'Serving live results via zero-server static in-browser search engine'
+            }
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: data.engineMode === 'backend' ? '#10b981' : '#0284c7',
+              }}
+            />
+            {data.engineMode === 'backend' ? 'API: FastAPI Backend' : 'Mode: In-Browser Demo'}
+          </div>
+        )}
       </header>
 
       {/* Search Filters */}

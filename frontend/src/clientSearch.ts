@@ -9,20 +9,24 @@ export function getClientCities(useExpanded: boolean = false): string[] {
 }
 
 function normalizeAddress(address: string): string {
-  let s = address.toLowerCase().replace(/[,.#]/g, ' ');
-  const map: Record<string, string> = {
-    '\\bst\\b': 'street',
-    '\\bave\\b': 'avenue',
-    '\\bct\\b': 'court',
-    '\\brd\\b': 'road',
-    '\\bln\\b': 'lane',
-    '\\bdr\\b': 'drive',
-    '\\bblvd\\b': 'boulevard',
-    '\\bapt\\b': 'unit',
-    '\\bste\\b': 'unit',
-  };
-  for (const [pattern, repl] of Object.entries(map)) {
-    s = s.replace(new RegExp(pattern, 'g'), repl);
+  let s = address.toLowerCase();
+  s = s.replace(/#\s*/g, 'unit ');
+  s = s.replace(/[,.]/g, ' ');
+  const map: [RegExp, string][] = [
+    [/\bst\b/g, 'street'],
+    [/\bave\b/g, 'avenue'],
+    [/\bct\b/g, 'court'],
+    [/\brd\b/g, 'road'],
+    [/\bln\b/g, 'lane'],
+    [/\bdr\b/g, 'drive'],
+    [/\bblvd\b/g, 'boulevard'],
+    [/\bapt\b/g, 'unit'],
+    [/\bste\b/g, 'unit'],
+    [/\bapartment\b/g, 'unit'],
+    [/\bsuite\b/g, 'unit'],
+  ];
+  for (const [pattern, repl] of map) {
+    s = s.replace(pattern, repl);
   }
   return s.split(/\s+/).join(' ').trim();
 }
@@ -30,10 +34,12 @@ function normalizeAddress(address: string): string {
 function getDeduplicationKey(listing: any): string {
   const normAddr = normalizeAddress(listing.address);
   const tokens = normAddr.split(' ');
-  const streetNum = tokens[0] && /^\d+$/.test(tokens[0]) ? tokens[0] : '';
+  const streetNum = tokens[0] || '';
+  const unitMatch = normAddr.match(/\bunit\s+([a-z0-9-]+)\b/);
+  const unitPart = unitMatch ? `unit_${unitMatch[1]}` : '';
   const latR = Number(listing.latitude).toFixed(4);
   const lonR = Number(listing.longitude).toFixed(4);
-  return `${streetNum}_${latR}_${lonR}`;
+  return unitPart ? `${streetNum}_${unitPart}_${latR}_${lonR}` : `${streetNum}_${latR}_${lonR}`;
 }
 
 export function executeClientSearch(filters: FilterState, page: number): SearchResponse {
@@ -54,6 +60,7 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
   if (minBed !== null && minBed < 0) throw new Error('minBedrooms cannot be negative');
   if (budget !== null && budget <= 0) throw new Error('targetBudget must be greater than zero');
   if (pageSize < 1) throw new Error('pageSize must be greater than or equal to 1');
+  if (pageSize > 100) throw new Error('pageSize cannot exceed 100');
   if (page < 1) throw new Error('page must be greater than or equal to 1');
 
   // 1. Filtering
@@ -62,6 +69,11 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
   const statusQ = filters.status ? filters.status.trim().toLowerCase() : 'all';
 
   const dataset = filters.useExpanded ? expandedData : sampleData;
+
+  // Reference date anchored to dataset maximum (deterministic across queries)
+  const refDate = new Date(
+    Math.max(...(dataset as any[]).map((item) => new Date(item.listedDate).getTime()))
+  );
 
   const filtered = (dataset as any[]).filter((item) => {
     if (minP !== null && item.price < minP) return false;
@@ -87,11 +99,6 @@ export function executeClientSearch(filters: FilterState, page: number): SearchR
       deduplicatedCount: 0,
     };
   }
-
-  // Reference date (max listedDate in sample)
-  const refDate = new Date(
-    Math.max(...filtered.map((item) => new Date(item.listedDate).getTime()))
-  );
 
   // 2. Scoring & Ranking
   const scored: Listing[] = filtered.map((item) => {

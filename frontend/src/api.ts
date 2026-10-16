@@ -58,23 +58,35 @@ export async function searchListings(
   try {
     const response = await fetch(`/api/listings/search?${params.toString()}`);
     
-    // If backend returned a deliberate 400 or other error
+    // Deliberate 400 validation error from FastAPI
     if (response.status === 400) {
       const data = await response.json();
       throw new Error(data.detail || 'Invalid search parameters');
     }
 
+    // 5xx Server Error: do NOT swallow, alert user
+    if (response.status >= 500) {
+      throw new Error(`Server Error (${response.status}): Failed to execute search.`);
+    }
+
     if (response.ok) {
-      return await response.json();
+      const data: SearchResponse = await response.json();
+      return { ...data, engineMode: 'backend' };
     }
   } catch (err: any) {
-    // If this was a deliberate 400 error thrown above, re-throw it!
-    if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError')) {
+    // If it's an explicit validation or server error, re-throw it!
+    if (
+      err.message &&
+      !err.message.includes('fetch') &&
+      !err.message.includes('NetworkError') &&
+      !err.message.includes('Failed to fetch') &&
+      !err.message.includes('Load failed')
+    ) {
       throw err;
     }
   }
 
-  // If backend is not available (such as on GitHub Pages static hosting),
-  // execute the exact same search logic client-side:
-  return executeClientSearch(filters, page);
+  // If backend is unreachable (e.g. GitHub Pages static demo), execute client-side engine:
+  const clientData = executeClientSearch(filters, page);
+  return { ...clientData, engineMode: 'client' };
 }

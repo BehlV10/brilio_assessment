@@ -49,7 +49,7 @@ The test suite covers core business logic, scoring formulas, tie-breaking, dedup
 cd backend
 ./venv/bin/pytest -v
 ```
-*(All 25 unit and API integration tests pass).*
+*(All 40 unit and API integration tests pass).*
 
 ---
 
@@ -140,7 +140,8 @@ MLS aggregators frequently receive overlapping listings for the identical physic
 
 ### The Implementation
 1. **Entity Resolution Key**:
-   - Normalized address: Standardizes street suffixes (`St` $\to$ `street`, `Ave` $\to$ `avenue`, `Ct` $\to$ `court`, `Apt` $\to$ `unit`) and removes punctuation.
+   - Normalized address: Standardizes street suffixes (`St` $\to$ `street`, `Ave` $\to$ `avenue`, `Ct` $\to$ `court`, `Apt` $\to$ `unit`, `#` $\to$ `unit`) and collapses punctuation.
+   - **Multi-Unit / Condo Protection**: Discerning unit identifiers (e.g. `unit_4b`) ensures that distinct condominiums at the same building address and GPS coordinates are NOT falsely clustered or deleted.
    - Coordinate clustering: Groups coordinates rounded to 4 decimal places ($\approx 11\text{m}$ precision).
 2. **Conflict Resolution**:
    - For clustered listings, the system prefers `active` status over `pending`/`sold`, followed by the highest relevance score / newest date.
@@ -158,15 +159,17 @@ Rather than crashing or failing silently, the service validates search parameter
 - `minBedrooms < 0`: `"minBedrooms cannot be negative"`
 - `targetBudget <= 0`: `"targetBudget must be greater than zero"`
 - `pageSize <= 0` or `page < 1`: `"pageSize/page must be greater than or equal to 1"`
-- In the React frontend, errors are caught and surfaced via a red alert banner with actionable feedback.
+- `pageSize > 100`: `"pageSize cannot exceed 100"`
+- In the React frontend, errors are caught and surfaced via an alert banner with actionable feedback.
 
 ---
 
 ## 9. Architecture & Trade-offs
 
-| Component | Choice | Trade-offs & Rationale |
+| Component | Choice | Trade-offs & Production Considerations |
 | :--- | :--- | :--- |
-| **Backend** | Python + FastAPI | Clean Pydantic schemas, built-in validation, async support, and interactive Swagger UI. Slower than Go for high throughput, but ideal for agile interview extensions and clean domain modeling. |
-| **Storage** | In-Memory Model List | Optimal for sample datasets ($<10,000$ listings) and zero setup overhead. In production, this would be backed by PostgreSQL with PostGIS or Elasticsearch/OpenSearch. |
-| **Frontend** | React + TypeScript (Vite) | Lightning-fast builds, strict type safety between backend schemas and UI, reactive state updates, and clean modular components. |
-| **Keyword Search** | Substring Matching | Case-insensitive substring match against listing descriptions. Fast and zero-dependency; for millions of listings, inverted indices (BM25) would be preferred. |
+| **Backend** | Python + FastAPI | Clean Pydantic schemas, built-in validation, async support, and interactive Swagger UI. In high-concurrency production setups, Go or Java might offer lower memory overhead, but FastAPI excels in developer velocity and domain modeling. |
+| **Storage / Search** | In-Memory Filter Pipeline | $O(N)$ filter and $O(N \log N)$ sort is instantaneous for mock datasets ($<10,000$ listings) with zero infrastructure dependencies. At scale ($500,000+$ listings), filtering would be offloaded to PostgreSQL B-tree indices / PostGIS spatial queries, with scoring executed via Elasticsearch `function_score`. |
+| **Deduplication** | Coordinate Grid + Street Unit Key | Simple, fast entity resolution clustering. Trade-off: properties right on a 4-decimal boundary line ($\approx 11\text{m}$) could theoretically split. In production, a spatial distance query (Haversine or PostGIS `ST_DWithin` $< 25\text{m}$) combined with probabilistic record linkage (Jaro-Winkler) would be preferred. |
+| **Scoring Curve** | Symmetric Budget Proximity | Modeled using $\exp(-3.0 \cdot \Delta)$. Trade-off: treats $\$50\text{k}$ over budget with the same score penalty as $\$50\text{k}$ under budget. In production, an asymmetric piecewise function (mild penalty below budget, severe exponential drop above hard pre-approval ceiling) would better mirror buyer psychology. |
+| **Dual-Mode Engine** | FastAPI Local + Client Fallback | Enables local full-stack development (`localhost:8000`) while allowing zero-friction static deployment on GitHub Pages with an in-browser TypeScript search engine and real-time UI mode badge. |

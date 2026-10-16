@@ -46,4 +46,5 @@ export interface SearchResponse {
   pageSize: number;
   totalPages: number;
   deduplicatedCount: number;
+  engineMode?: 'backend' | 'client';
 }

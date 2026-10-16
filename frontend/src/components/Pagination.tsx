@@ -23,7 +23,34 @@ export const Pagination: React.FC<PaginationProps> = ({
   const startResult = (currentPage - 1) * pageSize + 1;
   const endResult = Math.min(currentPage * pageSize, totalResults);
 
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  // Generate windowed page numbers (e.g. 1 ... 4 5 6 ... 23)
+  const getPageNumbers = (): (number | string)[] => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [];
+    pages.push(1);
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (start > 2) {
+      pages.push('ellipsis-start');
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (end < totalPages - 1) {
+      pages.push('ellipsis-end');
+    }
+
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const pageItems = getPageNumbers();
 
   return (
     <nav className="pagination" aria-label="Search results pagination">
@@ -39,18 +66,29 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={currentPage <= 1}
           aria-label="Previous Page"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={16} aria-hidden="true" />
         </button>
 
-        {pages.map((p) => (
-          <button
-            key={p}
-            className={`page-btn ${p === currentPage ? 'active' : ''}`}
-            onClick={() => onPageChange(p)}
-          >
-            {p}
-          </button>
-        ))}
+        {pageItems.map((item, idx) => {
+          if (typeof item === 'string') {
+            return (
+              <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: 'var(--text-muted)' }}>
+                …
+              </span>
+            );
+          }
+          return (
+            <button
+              key={item}
+              className={`page-btn ${item === currentPage ? 'active' : ''}`}
+              onClick={() => onPageChange(item)}
+              aria-current={item === currentPage ? 'page' : undefined}
+              aria-label={`Go to page ${item}`}
+            >
+              {item}
+            </button>
+          );
+        })}
 
         <button
           className="page-btn"
