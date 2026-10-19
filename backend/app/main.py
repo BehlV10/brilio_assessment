@@ -22,6 +22,8 @@ _sample_listings: List[Listing] = []
 _expanded_listings: List[Listing] = []
 
 
+# Application Lifespan: Pre-loads mock MLS datasets into memory once on startup.
+# This eliminates disk I/O latency on incoming search requests.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _sample_listings, _expanded_listings
@@ -37,7 +39,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enable CORS for frontend development
+# Enable Cross-Origin Resource Sharing (CORS) for frontend React dev server (localhost:5173).
+# Per W3C Fetch specification, wildcard origins allow_origins=["*"] requires allow_credentials=False.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,6 +51,7 @@ app.add_middleware(
 
 
 def get_listings(use_expanded: bool = False) -> List[Listing]:
+    """Helper to return the requested in-memory dataset (sample 12 listings vs expanded 112 listings)."""
     global _sample_listings, _expanded_listings
     if use_expanded:
         if not _expanded_listings:
@@ -62,7 +66,8 @@ def get_listings(use_expanded: bool = False) -> List[Listing]:
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
-    Transforms Pydantic validation errors into clean, human-readable 400 responses.
+    Transforms FastAPI/Pydantic request validation errors into clean, structured HTTP 400 responses.
+    Prevents unhandled 422 or 500 errors when client supplies non-numeric strings or illegal types.
     """
     errors = []
     for err in exc.errors():
@@ -81,6 +86,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.get("/api/health")
 def health_check():
+    """Liveness probe reporting backend status and total ingested listings count."""
     return {
         "status": "healthy",
         "totalListingsLoaded": len(get_listings()),
@@ -91,7 +97,7 @@ def health_check():
 def list_cities(
     useExpanded: bool = Query(False, description="Whether to include cities from expanded dataset"),
 ):
-    """Returns sorted unique cities available in the dataset."""
+    """Returns sorted unique cities available in the dataset for frontend dropdown population."""
     listings = get_listings(use_expanded=useExpanded)
     cities = sorted(list({item.city for item in listings}))
     return cities
@@ -113,10 +119,14 @@ def search_listings(
     pageSize: int = Query(5, description="Number of results per page"),
 ):
     """
-    Search and rank property listings.
-    Supports filtering, target-budget and recency relevance scoring, deduplication, and pagination.
+    Full search pipeline implementing the candidate assessment specification:
+    1. Deliberate input validation (e.g. minPrice > maxPrice, targetBudget <= 0, page boundaries).
+    2. Conjunctive filtering (price, bedrooms, status, city, keyword in description/address).
+    3. Relevance scoring (exponential budget proximity + reciprocal recency decay + status multiplier).
+    4. Cross-MLS deduplication (clusters by street unit and GPS coordinates, preserving active feeds).
+    5. 1-indexed pagination with metadata.
     """
-    # Explicit domain validation using SearchParams
+    # Step 1: Explicit domain validation using SearchParams
     try:
         params = SearchParams(
             minPrice=minPrice,
@@ -133,7 +143,6 @@ def search_listings(
             pageSize=pageSize,
         )
     except (ValidationError, ValueError) as e:
-        # Extract user-facing message
         if isinstance(e, ValidationError):
             msgs = [err.get("msg", str(err)).replace("Value error, ", "") for err in e.errors()]
             error_message = "; ".join(msgs)
@@ -144,6 +153,7 @@ def search_listings(
             detail=error_message,
         )
 
+    # Step 2: Ingest dataset & anchor reference date globally to avoid query-dependent score drift
     listings = get_listings(use_expanded=params.useExpanded)
     dataset_ref_date = (
         max(datetime.strptime(item.listedDate, "%Y-%m-%d").date() for item in listings)
@@ -151,10 +161,10 @@ def search_listings(
         else None
     )
 
-    # 1. Filtering
+    # Step 3: Conjunctive Filtering
     filtered = filter_listings(listings, params)
 
-    # 2. Relevance Scoring & Sorting
+    # Step 4: Relevance Scoring & Sorting
     scored = calculate_scores(
         filtered,
         target_budget=params.targetBudget,
@@ -162,12 +172,12 @@ def search_listings(
         sort_by=params.sortBy,
     )
 
-    # 3. Deduplication (if requested)
+    # Step 5: Cross-MLS Deduplication (if requested by user)
     dedup_count = 0
     if params.deduplicate:
         scored, dedup_count = deduplicate_scored_listings(scored, sort_by=params.sortBy)
 
-    # 4. Pagination
+    # Step 6: 1-indexed Pagination
     page_results, total_count, total_pages = paginate_listings(
         scored, page=params.page, pageSize=params.pageSize
     )

@@ -8,10 +8,13 @@ interface ListingCardProps {
   targetBudget?: string;
 }
 
+// Escapes special characters so arbitrary user query text (e.g. "3+", "(pet)") can be safely passed
+// to new RegExp without throwing SyntaxError or crashing the React tree.
 const escapeRegExp = (str: string): string => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
+// Hoisted to module scope to avoid re-allocating expensive Intl.NumberFormat objects on each card render.
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',

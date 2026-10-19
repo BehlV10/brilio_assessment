@@ -34,6 +34,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           borderBottom: '1px solid var(--border)',
         }}
       >
+        {/* Dataset Selection: Allows testing with candidate handout data (12) vs expanded synthetic data (112) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: 600 }}>
           <Database size={16} color="var(--primary)" />
           <span>Active Dataset:</span>
@@ -237,6 +238,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
 
       {/* Deduplication & Actions */}
       <div className="filter-actions-row">
+        {/* Keyboard-accessible custom toggle switch: Announces role="switch" and aria-checked to screen readers */}
         <button
           type="button"
           role="switch"

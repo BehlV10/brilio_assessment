@@ -69,7 +69,8 @@ export const App: React.FC = () => {
       return;
     }
 
-    // If deduplicate toggle, status dropdown, sort order, or pageSize was flipped, trigger search immediately
+    // Auto-trigger search immediately for discrete toggles & dropdowns (deduplication, status, sort order, pageSize).
+    // Text inputs (minPrice, maxPrice, keyword, budget) require clicking "Apply Search" to avoid jarring mid-typing re-renders.
     if (
       updated.deduplicate !== undefined ||
       updated.status !== undefined ||
@@ -99,6 +100,7 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 1-Click Filter Chip Removal: Clears filter and immediately re-executes search
   const removeFilter = (key: keyof FilterState) => {
     const updated: Partial<FilterState> = {};
     if (key === 'deduplicate') updated.deduplicate = false;

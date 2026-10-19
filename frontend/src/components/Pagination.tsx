@@ -23,7 +23,10 @@ export const Pagination: React.FC<PaginationProps> = ({
   const startResult = (currentPage - 1) * pageSize + 1;
   const endResult = Math.min(currentPage * pageSize, totalResults);
 
-  // Generate windowed page numbers (e.g. 1 ... 4 5 6 ... 23)
+  // Sliding Window Pagination Algorithm:
+  // Prevents DOM explosion when searching large datasets (e.g., 50+ pages).
+  // If totalPages <= 7, renders all numbers. Otherwise, renders a sliding window
+  // with ellipses around the current page: [1, '...', curr-1, curr, curr+1, '...', totalPages].
   const getPageNumbers = (): (number | string)[] => {
     if (totalPages <= 7) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);

@@ -1,3 +1,11 @@
+/**
+ * Client-Side Search Engine Fallback
+ * 
+ * Provides an exact, in-browser TypeScript implementation of the FastAPI Python search service.
+ * Used when running on static hosting environments like GitHub Pages where Python cannot execute,
+ * allowing interviewers to test the full search experience with zero local setup.
+ */
+
 import sampleData from './data/sample_listings.json';
 import expandedData from './data/expanded_listings.json';
 import { FilterState, Listing, SearchResponse } from './types';
@@ -8,6 +16,10 @@ export function getClientCities(useExpanded: boolean = false): string[] {
   return cities.sort();
 }
 
+/**
+ * Normalizes street address by expanding common abbreviations and standardizing unit tokens.
+ * Matches backend normalize_address() behavior.
+ */
 function normalizeAddress(address: string): string {
   let s = address.toLowerCase();
   s = s.replace(/#\s*/g, 'unit ');
@@ -31,6 +43,10 @@ function normalizeAddress(address: string): string {
   return s.split(/\s+/).join(' ').trim();
 }
 
+/**
+ * Generates canonical key combining street number, unit token, and 4-decimal rounded coordinates.
+ * Preserves distinct condo units in the same building while clustering duplicate provider feeds.
+ */
 function getDeduplicationKey(listing: any): string {
   const normAddr = normalizeAddress(listing.address);
   const tokens = normAddr.split(' ');

@@ -1,6 +1,16 @@
+/**
+ * API Client with Dual-Mode Architecture:
+ * 1. Primary Mode (Local): Requests live Python FastAPI backend at /api/listings/...
+ * 2. Fallback Mode (Static Demo): If backend is unreachable (e.g. GitHub Pages hosting),
+ *    seamlessly executes the identical logic in-browser via clientSearch.ts.
+ */
+
 import { FilterState, SearchResponse } from './types';
 import { executeClientSearch, getClientCities } from './clientSearch';
 
+/**
+ * Fetches unique cities for the dropdown from backend, or extracts from bundled JSON on fallback.
+ */
 export async function fetchCities(useExpanded: boolean = false): Promise<string[]> {
   try {
     const res = await fetch(`/api/listings/cities?useExpanded=${useExpanded}`);
@@ -8,13 +18,17 @@ export async function fetchCities(useExpanded: boolean = false): Promise<string[
       return await res.json();
     }
   } catch {
-    // Backend API not reachable (e.g. running on GitHub Pages)
+    // Backend API not reachable (e.g. running on GitHub Pages static host)
   }
 
   // Fallback to client-side data
   return getClientCities(useExpanded);
 }
 
+/**
+ * Executes listings search with query parameter serialization.
+ * Tags responses with engineMode: 'backend' vs 'client' to update the UI status badge.
+ */
 export async function searchListings(
   filters: FilterState,
   page: number
